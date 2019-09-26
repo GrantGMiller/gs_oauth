@@ -20,13 +20,21 @@ if DEBUG is False:
     print = lambda *a, **k: None
 
 
-class OauthDeviceCode_Google:
+class _BaseOauthDeviceCode:
+    @property
+    def Type(self):
+        return self._type
+
+
+class OauthDeviceCode_Google(_BaseOauthDeviceCode):
     def __init__(self, jsonPath, initAccessToken=None, initRefreshToken=None,
                  initAccessTokenExpiresAt=None):
         with open(jsonPath, mode='rt') as file:
             self._creds = json.loads(file.read())
 
         self._session = requests.session()
+
+        self._type = 'Google'
 
         # will be filled in later
         self._accessToken = initAccessToken
@@ -181,10 +189,12 @@ class OauthDeviceCode_Google:
             return self._accessToken
 
 
-class OauthDeviceCode_Microsoft:
+class OauthDeviceCode_Microsoft(_BaseOauthDeviceCode):
     def __init__(self, clientID, tenantID, initAccessToken=None, initRefreshToken=None, initAccessTokenExpiresAt=None):
         self._clientID = clientID
         self._tenantID = tenantID
+
+        self._type = 'Microsoft'
 
         # will be filled in later
         self._accessToken = initAccessToken
@@ -308,17 +318,25 @@ class OauthDeviceCode_Microsoft:
 
 
 class User:
-    def __init__(self, ID, authManagerParent):
+    def __init__(self, ID, authManagerParent, authType):
         self._ID = ID
 
         data = authManagerParent.Get(self)
-        self._oa = OauthDeviceCode_Google(
-            clientID=authManagerParent.ClientID,
-            tenantID=authManagerParent.TenantID,
-            initAccessToken=data.get('accessToken', None),
-            initRefreshToken=data.get('refreshToken', None),
-            initAccessTokenExpiresAt=data.get('expiresAt', None),
-        )
+        if authType == 'Google':
+            self._oa = OauthDeviceCode_Google(
+                jsonPath=authManagerParent.GoogleJSONPath,
+                initAccessToken=data.get('accessToken', None),
+                initRefreshToken=data.get('refreshToken', None),
+                initAccessTokenExpiresAt=data.get('expiresAt', None),
+            )
+        elif authType == 'Microsoft':
+            self._oa = OauthDeviceCode_Microsoft(
+                clientID=authManagerParent.ClientID,
+                tenantID=authManagerParent.TenantID,
+                initAccessToken=data.get('accessToken', None),
+                initRefreshToken=data.get('refreshToken', None),
+                initAccessTokenExpiresAt=data.get('expiresAt', None),
+            )
         self._emailAddress = data.get('emailAddress', None)
         self._authManagerParent = authManagerParent
 
@@ -335,7 +353,8 @@ class User:
             'accessToken': self._oa.GetAccessToken(),
             'refreshToken': self._oa.GetRefreshToken(),
             'expiresAt': self._oa.GetAccessTokenExpriesAt(),
-            'emailAddress': self._emailAddress
+            'emailAddress': self._emailAddress,
+            'type': self._oa.Type,
         }
 
     @property
@@ -389,6 +408,10 @@ class AuthManager:
     def TenantID(self):
         return self._microsoftTenantID
 
+    @property
+    def GoogleJSONPath(self):
+        return self._googleJSONpath
+
     def Update(self, userObj):
         self._pv.Set(userObj.ID, userObj.Data)
 
@@ -426,6 +449,7 @@ class AuthManager:
                         'accessToken': tempOA.GetAccessToken(),
                         'refreshToken': tempOA.GetRefreshToken(),
                         'expiresAt': tempOA.GetAccessTokenExpriesAt(),
+                        'type': tempOA.Type,
                     })
                     print('New User added to AuthManager. ID="{}"'.format(ID))
                     break
