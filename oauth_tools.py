@@ -5,14 +5,9 @@ from urllib.parse import urlencode
 
 # based on the steps here:https://developers.google.com/identity/protocols/OAuth2ForDevices
 
-try:
-    from persistent_variables import PersistentVariables as PV
-    import aes_tools
-    from extronlib.system import File, Wait, ProgramLog
-
-except Exception as e:
-    print(e)
-    pass
+from persistent_variables import PersistentVariables as PV
+import aes_tools
+from extronlib.system import File, Wait, ProgramLog
 
 DEBUG = True
 oldPrint = print
@@ -358,7 +353,18 @@ class User:
         }
 
     @property
+    def AccessToken(self):
+        return self._oa.GetAccessToken()
+
+    @property
+    def RefreshToken(self):
+        return self._oa.GetRefreshToken()
+
+    @property
     def EmailAddress(self):
+        if self._oa.Type != 'Microsoft':
+            return
+
         if self._emailAddress is None:
             resp = requests.get(
                 # 'https://graph.microsoft.com/v1.0/me',
@@ -412,6 +418,12 @@ class AuthManager:
     def GoogleJSONPath(self):
         return self._googleJSONpath
 
+    @property
+    def GoogleData(self):
+        with open(self._googleJSONpath, mode='rt') as file:
+            d = json.loads(file.read())['installed']
+            return d
+
     def Update(self, userObj):
         self._pv.Set(userObj.ID, userObj.Data)
 
@@ -420,10 +432,12 @@ class AuthManager:
 
     def GetUserByID(self, ID):
         print('self._pv.Get()=', self._pv.Get())
-        if ID in self._pv.Get():
+        d = self._pv.Get()
+        if ID in d:
             return User(
                 ID,
                 authManagerParent=self,
+                authType=d[ID]['type'],
             )
         else:
             return None  # no user exist, you can use CreateNewUser if you like
