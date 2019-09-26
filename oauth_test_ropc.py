@@ -57,7 +57,7 @@ def SubmitLogin():
     username = request.form.get('username', None)
     password = request.form.get('password', None)
     if username and password:
-        print('104 session=', json.dumps(dict(session), indent=2, sort_keys=True))
+        print('104 _session=', json.dumps(dict(session), indent=2, sort_keys=True))
         data = {
             "grant_type": "password",
             "client_id": CLIENT_ID,
@@ -92,7 +92,7 @@ def SubmitLogin():
                     key, val,
                     expires=expireDT,
                 )
-                # session[s] = resp.json().get(s)
+                # _session[s] = resp.json().get(s)
 
         return returnResp
     else:
@@ -113,7 +113,7 @@ def Calendar():
     #     password=creds.password,
     # )
     # Set up the connection to exchange with Oauth token
-    print('137 session=', json.dumps(dict(session), indent=2, sort_keys=True))
+    print('137 _session=', json.dumps(dict(session), indent=2, sort_keys=True))
     print('138 request.values=', json.dumps(dict(request.values), indent=2, sort_keys=True))
     print('151 request.cookies=', json.dumps(dict(request.cookies), indent=2, sort_keys=True))
 

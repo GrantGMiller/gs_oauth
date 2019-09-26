@@ -34,7 +34,7 @@ User authenticates on microsoftonline.com.
 Microsoft server redirects the users browser to the "redirect_uri" includes the "id_token" in the body
 
 '''
-# sesh = requests.session()
+# sesh = requests._session()
 #
 # data={
 #         'client_id': clientID,

@@ -4,7 +4,7 @@ import requests
 try:
     from persistent_variables import PersistentVariables as PV
     import aes_tools
-    from extronlib.system import File, Wait
+    from extronlib.system import File, Wait, ProgramLog
 
 except Exception as e:
     print(e)
@@ -67,7 +67,7 @@ class OauthDeviceCode:
         return self._interval
 
     def DeviceCodeExpired(self):
-        return time.time() > self._deviceCode
+        return time.time() > self._deviceCodeExpiresAt
 
     def GetRefreshToken(self):
         return self._refreshToken
@@ -107,13 +107,16 @@ class OauthDeviceCode:
                     'refresh_token': self._refreshToken,
                     'grant_type': 'refresh_token',
                 }
-                resp = requests.post(url, data)
-                self._lastRequest = time.time()
-                print('Refresh Token request complete')
-                print('resp.json()=', resp.json())
-                self._accessToken = resp.json().get('access_token')
-                self._refreshToken = resp.json().get('refresh_token')
-                self._accessTokenExpiresAt = time.time() + resp.json().get('expires_in')
+                try:
+                    resp = requests.post(url, data)
+                    self._lastRequest = time.time()
+                    print('Refresh Token request complete')
+                    print('resp.json()=', resp.json())
+                    self._accessToken = resp.json().get('access_token')
+                    self._refreshToken = resp.json().get('refresh_token')
+                    self._accessTokenExpiresAt = time.time() + resp.json().get('expires_in')
+                except Exception as e:
+                    ProgramLog(str(e), 'error')
                 return self._accessToken
             else:
                 print('The access token will expire in {} seconds'.format(
@@ -153,11 +156,11 @@ class User:
             initRefreshToken=data.get('refreshToken', None),
             initAccessTokenExpiresAt=data.get('expiresAt', None),
         )
-        self._emailAddress = emailAddress
+        self._emailAddress = data.get('emailAddress', None)
         self._authManagerParent = authManagerParent
 
     def __str__(self):
-        return '<User: ID={}, Email={}>'.format(self.ID, self.Email)
+        return '<User: ID={}, EmailAddress={}>'.format(self.ID, self.EmailAddress)
 
     @property
     def ID(self):
@@ -173,7 +176,7 @@ class User:
         }
 
     @property
-    def Email(self):
+    def EmailAddress(self):
         if self._emailAddress is None:
             resp = requests.get(
                 # 'https://graph.microsoft.com/v1.0/me',
@@ -190,6 +193,9 @@ class User:
                 self._authManagerParent.Update(self)
 
         return self._emailAddress
+
+    def GetAcessToken(self):
+        return self._oa.GetAccessToken()
 
 
 class AuthManager:
@@ -224,9 +230,8 @@ class AuthManager:
         return self._pv.Get(userObj.ID, {})
 
     def GetUserByID(self, ID):
-        d = self._pv.Get()
-        if ID in d:
-            data = d.get('ID', {})
+        print('self._pv.Get()=', self._pv.Get())
+        if ID in self._pv.Get():
             return User(
                 ID,
                 authManagerParent=self,
