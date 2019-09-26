@@ -267,11 +267,11 @@ class AuthManager:
 
 
 if __name__ == '__main__':
-    # Test OauthDeviceCode() class
+    # Test OauthDeviceCode_Google() class
     import creds
     import webbrowser
     #
-    # oa = OauthDeviceCode(creds.clientID, creds.tenantID)
+    # oa = OauthDeviceCode_Google(creds.clientID, creds.tenantID)
     # ret = oa.GetUserCode()
     # print('ret=', ret)
     # webbrowser.open(oa.VerificationURI)
