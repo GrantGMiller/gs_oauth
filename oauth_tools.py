@@ -94,10 +94,16 @@ class OauthDeviceCode_Google(_BaseOauthDeviceCode):
         url = 'https://accounts.google.com/o/oauth2/device/code'
         resp = requests.post(url, data=data)
         print('resp=', resp.json())
+
+        if not 200 <= resp.status_code < 300:
+            print('url=', url)
+            print('data=', data)
+            return
+
         self._verificationURI = resp.json().get('verification_url')
         self._userCode = resp.json().get('user_code')
         self._deviceCode = resp.json().get('device_code')
-        self._interval = resp.json().get('interval')
+        self._interval = resp.json().get('interval', self._interval)
         self._deviceCodeExpiresAt = time.time() + resp.json().get('expires_in')
         self._lastRequest = time.time()
         print('')
@@ -217,11 +223,17 @@ class OauthDeviceCode_Microsoft(_BaseOauthDeviceCode):
         url = 'https://login.microsoftonline.com/{}/oauth2/v2.0/devicecode'.format(self._tenantID)
         resp = requests.post(url, data=data)
         print('resp=', resp.json())
+        if not 200 <= resp.status_code < 300:
+            print('url=', url)
+            print('data=', data)
+            print('resp.reason=', resp.reason)
+            return
+
         self._verificationURI = resp.json().get('verification_uri')
         self._userCode = resp.json().get('user_code')
         self._deviceCode = resp.json().get('device_code')
         self._interval = resp.json().get('interval')
-        self._deviceCodeExpiresAt = time.time() + resp.json().get('expires_in')
+        self._deviceCodeExpiresAt = time.time() + resp.json().get('expires_in', 0)
         self._lastRequest = time.time()
         print('')
         return self._userCode
