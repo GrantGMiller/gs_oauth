@@ -5,8 +5,11 @@ from urllib.parse import urlencode
 
 # based on the steps here:https://developers.google.com/identity/protocols/OAuth2ForDevices
 
-from persistent_variables import PersistentVariables as PV
-import aes_tools
+try:
+    from persistent_variables import PersistentVariables as PV
+    import aes_tools
+except Exception as e:
+    print(e)
 from extronlib.system import File, Wait, ProgramLog
 
 DEBUG = True
