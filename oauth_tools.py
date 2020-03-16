@@ -12,7 +12,7 @@ except Exception as e:
     print(e)
 from extronlib.system import File, Wait, ProgramLog
 
-DEBUG = True
+DEBUG = False
 oldPrint = print
 if DEBUG is False:
     print = lambda *a, **k: None
@@ -25,6 +25,7 @@ class _BaseOauthDeviceCode:
 
 
 class OauthDeviceCode_Google(_BaseOauthDeviceCode):
+    # https://console.developers.google.com/apis/dashboard
     def __init__(self, jsonPath, initAccessToken=None, initRefreshToken=None,
                  initAccessTokenExpiresAt=None):
         with open(jsonPath, mode='rt') as file:
@@ -53,6 +54,9 @@ class OauthDeviceCode_Google(_BaseOauthDeviceCode):
                 'redirect_uri': self._creds['installed']['redirect_uris'][-1],
                 'scope': ' '.join([
                     'https://www.googleapis.com/auth/calendar',
+                    'https://www.googleapis.com/auth/admin.directory.user',
+                    'https://www.googleapis.com/auth/admin.directory.resource.calendar'
+                    # to read the resource "capacity"
                 ]),
                 'access_type': 'offline',
                 'response_type': 'code',
@@ -92,13 +96,16 @@ class OauthDeviceCode_Google(_BaseOauthDeviceCode):
             'client_id': self._creds['installed']['client_id'],
             'scope': ' '.join([
                 'https://www.googleapis.com/auth/calendar',
+                # 'https://www.googleapis.com/auth/admin.directory.resource.calendar.readonly', # to read directory, but giving an "invalid_scope" error so idk
+                # 'https://www.googleapis.com/auth/admin.directory.resource.calendar',  # to read the resource "capacity"
+
             ]),
         }
         url = 'https://accounts.google.com/o/oauth2/device/code'
         resp = requests.post(url, data=data)
-        print('resp=', resp.json())
+        print('105 resp=', resp.json(), resp.reason)
 
-        if not 200 <= resp.status_code < 300:
+        if not resp.ok:
             print('url=', url)
             print('data=', data)
             return
@@ -174,7 +181,6 @@ class OauthDeviceCode_Google(_BaseOauthDeviceCode):
         else:
             # This is the first time we are retrieving an access token
             url = 'https://oauth2.googleapis.com/token'
-            # url = 'http://grant-miller.com'
             resp = requests.post(
                 url,
                 data={
@@ -309,7 +315,6 @@ class OauthDeviceCode_Microsoft(_BaseOauthDeviceCode):
         else:
             # This is the first time we are retrieving an access token
             url = 'https://login.microsoftonline.com/{}/oauth2/v2.0/token'.format(self._tenantID)
-            # url = 'http://grant-miller.com'
             resp = requests.post(
                 url,
                 data={
@@ -407,7 +412,11 @@ class AuthManager:
         self._microsoftTenantID = microsoftTenantID
         self._googleJSONpath = googleJSONpath
 
-        self._pv = PV('OAuth.json', fileClass=File if DEBUG else aes_tools.File)
+        self._pv = PV(
+            'OAuth.json',
+            fileClass=File if DEBUG else aes_tools.File,
+            fileMode='t' if DEBUG else 'b',
+        )
         '''
         Data stored like this:
         {
@@ -485,6 +494,7 @@ class AuthManager:
             else:
                 print('Device Code Expired. User was NOT created.')
 
+        oldPrint('Go to "{}" and enter code "{}"'.format(tempOA.VerificationURI, userCode))
         return {
             'verification_uri': tempOA.VerificationURI,
             'user_code': userCode,
@@ -492,32 +502,64 @@ class AuthManager:
 
 
 if __name__ == '__main__':
-    # Test OauthDeviceCode() class
-    import creds
-    import webbrowser
+    def TestMicrosoft():
+        import creds
+        import webbrowser
 
-    MY_ID = '4105'
-    JSON_PATH = 'client_secret_673364926560-srmglql2fn27lfk6rea3oear6itdlojn.apps.googleusercontent.com.json'
-    TYPE = 'Google'
+        MY_ID = '3888'
+        TYPE = 'Microsoft'
 
-    authManager = AuthManager(
-        microsoftClientID=creds.clientID,
-        microsoftTenantID=creds.tenantID,
-        googleJSONpath=JSON_PATH,
-    )
+        authManager = AuthManager(
+            microsoftClientID=creds.clientID,
+            microsoftTenantID=creds.tenantID,
+        )
 
-    user = authManager.GetUserByID(MY_ID)
-    if user is None:
-        print('No user exists for ID="{}"'.format(MY_ID))
-
-        d = authManager.CreateNewUser(MY_ID, authType=TYPE)
-        webbrowser.open(d.get('verification_uri'))
-        print('User Code=', d.get('user_code'))
-
-    while True:
         user = authManager.GetUserByID(MY_ID)
+
         if user is None:
-            time.sleep(1)
-        else:
-            break
-    print('user=', user)
+            print('No user exists for ID="{}"'.format(MY_ID))
+
+            d = authManager.CreateNewUser(MY_ID, authType=TYPE)
+            webbrowser.open(d.get('verification_uri'))
+            print('User Code=', d.get('user_code'))
+
+        while True:
+            user = authManager.GetUserByID(MY_ID)
+            if user is None:
+                time.sleep(1)
+            else:
+                break
+        print('user=', user)
+
+
+    def TestGoogle():
+        import creds
+        import webbrowser
+        MY_ID = '3888'
+        JSON_PATH = 'client_secret_673364926560-srmglql2fn27lfk6rea3oear6itdlojn.apps.googleusercontent.com.json'
+        TYPE = 'Google'
+
+        authManager = AuthManager(
+            googleJSONpath=JSON_PATH,
+        )
+
+        user = authManager.GetUserByID(MY_ID)
+
+        if user is None:
+            print('No user exists for ID="{}"'.format(MY_ID))
+
+            d = authManager.CreateNewUser(MY_ID, authType=TYPE)
+            webbrowser.open(d.get('verification_uri'))
+            print('User Code=', d.get('user_code'))
+
+        while True:
+            user = authManager.GetUserByID(MY_ID)
+            if user is None:
+                time.sleep(1)
+            else:
+                break
+        print('user=', user)
+
+
+    # TestMicrosoft()
+    TestGoogle()
