@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/../aes-tools/.idea/aes-tools.iml" filepath="$PROJECT_DIR$/../aes-tools/.idea/aes-tools.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../exchange-interface/.idea/exchange-interface.iml" filepath="$PROJECT_DIR$/../exchange-interface/.idea/exchange-interface.iml" />
       <module fileurl="file://$PROJECT_DIR$/../extronlib-clone/.idea/extronlib-clone.iml" filepath="$PROJECT_DIR$/../extronlib-clone/.idea/extronlib-clone.iml" />
       <module fileurl="file://$PROJECT_DIR$/../flask-tools/.idea/flask-tools.iml" filepath="$PROJECT_DIR$/../flask-tools/.idea/flask-tools.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/oAuth_tools_2.iml" filepath="$PROJECT_DIR$/.idea/oAuth_tools_2.iml" />

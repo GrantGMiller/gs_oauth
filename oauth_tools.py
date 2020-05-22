@@ -12,7 +12,7 @@ except Exception as e:
     print(e)
 from extronlib.system import File, Wait, ProgramLog
 
-DEBUG = False
+DEBUG = True
 oldPrint = print
 if DEBUG is False:
     print = lambda *a, **k: None
@@ -503,7 +503,13 @@ class AuthManager:
 
 if __name__ == '__main__':
     def TestMicrosoft():
-        import creds
+        try:
+            import creds
+        except:
+            creds = object()
+            creds.clientID = '459ac21c-adde-45a5-abf3-85d757ba2fdf'
+            creds.tenantID = '30f18c78-f7ab-4851-9759-88950e65dc4b'
+
         import webbrowser
 
         MY_ID = '3888'
@@ -515,7 +521,7 @@ if __name__ == '__main__':
         )
 
         user = authManager.GetUserByID(MY_ID)
-
+        print('user=', user)
         if user is None:
             print('No user exists for ID="{}"'.format(MY_ID))
 
@@ -561,5 +567,5 @@ if __name__ == '__main__':
         print('user=', user)
 
 
-    # TestMicrosoft()
-    TestGoogle()
+    TestMicrosoft()
+    # TestGoogle()
