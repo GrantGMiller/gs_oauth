@@ -1,3 +1,4 @@
+import datetime
 import json
 import time
 import requests
@@ -16,6 +17,8 @@ DEBUG = True
 oldPrint = print
 if DEBUG is False:
     print = lambda *a, **k: None
+
+USE_COMMON_TENANT = True  # per microsoft: Usage of the /common endpoint is not supported for such applications created after '10/15/2018'
 
 
 class _BaseOauthDeviceCode:
@@ -174,8 +177,9 @@ class OauthDeviceCode_Google(_BaseOauthDeviceCode):
                     ProgramLog(str(e), 'error')
                 return self._accessToken
             else:
-                print('The access token will expire in {} seconds'.format(
-                    int(self._accessTokenExpiresAt - time.time())))
+                delta = int(self._accessTokenExpiresAt - time.time())
+                print('The access token will expire in {}'.format(
+                    datetime.timedelta(seconds=delta)))
                 print('The access token is still good, return it.')
                 return self._accessToken
         else:
@@ -282,7 +286,12 @@ class OauthDeviceCode_Microsoft(_BaseOauthDeviceCode):
             # we already received an access token previously
             if time.time() > self._accessTokenExpiresAt:
                 print('The accessToken is expired, use the refreshToken to get a new one')
-                url = 'https://login.microsoftonline.com/{}/oauth2/v2.0/token'.format(self._tenantID)
+
+                if USE_COMMON_TENANT:
+                    url = 'https://login.microsoftonline.com/common/oauth2/v2.0/token'
+                else:
+                    url = 'https://login.microsoftonline.com/{}/oauth2/v2.0/token'.format(self._tenantID)
+
                 data = {
                     'client_id': self._clientID,
                     'scope': ' '.join([
@@ -308,13 +317,19 @@ class OauthDeviceCode_Microsoft(_BaseOauthDeviceCode):
                     ProgramLog(str(e), 'error')
                 return self._accessToken
             else:
-                print('The access token will expire in {} seconds'.format(
-                    int(self._accessTokenExpiresAt - time.time())))
+                delta = int(self._accessTokenExpiresAt - time.time())
+                print('The access token will expire in {}'.format(
+                    datetime.timedelta(seconds=delta)))
                 print('The access token is still good, return it.')
                 return self._accessToken
         else:
             # This is the first time we are retrieving an access token
-            url = 'https://login.microsoftonline.com/{}/oauth2/v2.0/token'.format(self._tenantID)
+
+            if USE_COMMON_TENANT:
+                url = 'https://login.microsoftonline.com/common/oauth2/v2.0/token'
+            else:
+                url = 'https://login.microsoftonline.com/{}/oauth2/v2.0/token'.format(self._tenantID)
+
             resp = requests.post(
                 url,
                 data={
@@ -374,11 +389,15 @@ class User:
 
     @property
     def AccessToken(self):
-        return self._oa.GetAccessToken()
+        ret = self._oa.GetAccessToken()
+        self._authManagerParent.Update(self)
+        return ret
 
     @property
     def RefreshToken(self):
-        return self._oa.GetRefreshToken()
+        ret = self._oa.GetRefreshToken()
+        self._authManagerParent.Update(self)
+        return ret
 
     @property
     def EmailAddress(self):
