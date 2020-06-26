@@ -10,4 +10,7 @@
     <orderEntry type="module" module-name="persistant-variables" />
     <orderEntry type="module" module-name="exchange-interface" />
   </component>
+  <component name="PackageRequirementsSettings">
+    <option name="requirementsPath" value="" />
+  </component>
 </module>
