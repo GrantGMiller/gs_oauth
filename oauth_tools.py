@@ -1,7 +1,11 @@
 import datetime
 import json
 import time
-import requests
+try:
+    import requests
+except:
+    import gs_requests as requests
+
 from urllib.parse import urlencode
 
 # based on the steps here:https://developers.google.com/identity/protocols/OAuth2ForDevices
@@ -13,7 +17,7 @@ except Exception as e:
     print(e)
 from extronlib.system import File, Wait, ProgramLog
 
-DEBUG = True
+DEBUG = False
 oldPrint = print
 if DEBUG is False:
     print = lambda *a, **k: None
@@ -426,15 +430,20 @@ class User:
 
 
 class AuthManager:
-    def __init__(self, microsoftClientID=None, microsoftTenantID=None, googleJSONpath=None):
+    def __init__(self,
+                 microsoftClientID=None,
+                 microsoftTenantID=None,
+                 googleJSONpath=None,
+                 debug=DEBUG
+                 ):
         self._microsoftClientID = microsoftClientID
         self._microsoftTenantID = microsoftTenantID
         self._googleJSONpath = googleJSONpath
 
         self._pv = PV(
             'OAuth.json',
-            fileClass=File if DEBUG else aes_tools.File,
-            fileMode='t' if DEBUG else 'b',
+            fileClass=File if debug else aes_tools.File,
+            fileMode='t' if debug else 'b',
         )
         '''
         Data stored like this:
