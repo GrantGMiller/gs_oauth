@@ -1,6 +1,7 @@
 import datetime
 import json
 import time
+
 try:
     import requests
 except:
@@ -353,6 +354,7 @@ class OauthDeviceCode_Microsoft(_BaseOauthDeviceCode):
 
 class User:
     def __init__(self, ID, authManagerParent, authType):
+        print('356')
         self._ID = ID
 
         data = authManagerParent.Get(self)
@@ -373,6 +375,8 @@ class User:
             )
         self._emailAddress = data.get('emailAddress', None)
         self._authManagerParent = authManagerParent
+
+        print('378')
 
     def __str__(self):
         return '<User: ID={}, EmailAddress={}>'.format(self.ID, self.EmailAddress)
@@ -434,7 +438,8 @@ class AuthManager:
                  microsoftClientID=None,
                  microsoftTenantID=None,
                  googleJSONpath=None,
-                 debug=DEBUG
+                 debug=DEBUG,
+                 fileClass=File,
                  ):
         self._microsoftClientID = microsoftClientID
         self._microsoftTenantID = microsoftTenantID
@@ -442,8 +447,8 @@ class AuthManager:
 
         self._pv = PV(
             'OAuth.json',
-            fileClass=File if debug else aes_tools.File,
-            fileMode='t' if debug else 'b',
+            fileClass=fileClass,
+            fileMode='t' if fileClass == File else 'b',
         )
         '''
         Data stored like this:
@@ -483,8 +488,11 @@ class AuthManager:
         return self._pv.Get(userObj.ID, {})
 
     def GetUserByID(self, ID):
+        print('486')
         print('self._pv.Get()=', self._pv.Get())
+        print('488')
         d = self._pv.Get()
+        print('490')
         if ID in d:
             return User(
                 ID,
