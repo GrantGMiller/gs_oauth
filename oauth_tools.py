@@ -1,7 +1,6 @@
 import datetime
 import json
 import time
-
 try:
     import requests
 except:
@@ -10,7 +9,6 @@ except:
 from urllib.parse import urlencode
 
 # based on the steps here:https://developers.google.com/identity/protocols/OAuth2ForDevices
-
 try:
     from persistent_variables import PersistentVariables as PV
     import aes_tools
