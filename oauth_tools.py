@@ -18,6 +18,7 @@ except Exception as e:
     print(e)
 from extronlib.system import File, Wait, ProgramLog
 
+
 DEBUG = False
 oldPrint = print
 if DEBUG is False:
@@ -488,11 +489,9 @@ class AuthManager:
         return self._pv.Get(userObj.ID, {})
 
     def GetUserByID(self, ID):
-        print('486')
-        print('self._pv.Get()=', self._pv.Get())
-        print('488')
+        assert isinstance(ID, str), '"ID" must be a string not {}'.format(type(ID))
+
         d = self._pv.Get()
-        print('490')
         if ID in d:
             return User(
                 ID,
@@ -502,7 +501,9 @@ class AuthManager:
         else:
             return None  # no user exist, you can use CreateNewUser if you like
 
-    def CreateNewUser(self, ID, authType):
+    def CreateNewUser(self, ID, authType='Microsoft', callback=None):
+        assert isinstance(ID, str), '"ID" must be a string not {}'.format(type(ID))
+
         if authType == 'Google':
             tempOA = OauthDeviceCode_Google(self._googleJSONpath)
         elif authType == 'Microsoft':
@@ -526,6 +527,8 @@ class AuthManager:
                         'type': tempOA.Type,
                     })
                     print('New User added to AuthManager. ID="{}"'.format(ID))
+                    if callback:
+                        callback(self.GetUserByID(ID))
                     break
             else:
                 print('Device Code Expired. User was NOT created.')
