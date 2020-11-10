@@ -24,9 +24,7 @@ USE_COMMON_TENANT = True  # per microsoft: Usage of the /common endpoint is not 
 
 
 class _BaseOauthDeviceCode:
-    @property
-    def Type(self):
-        return self._type
+    pass
 
 
 class OauthDeviceCode_Google(_BaseOauthDeviceCode):
@@ -34,13 +32,15 @@ class OauthDeviceCode_Google(_BaseOauthDeviceCode):
 
     def __init__(self, jsonPath, initAccessToken=None, initRefreshToken=None,
                  initAccessTokenExpiresAt=None, debug=False):
+
         self._debug = debug
+
         with File(jsonPath, mode='rt') as file:
             self._creds = json.loads(file.read())
 
         self._session = requests.session()
 
-        self._type = 'Google'
+        self.type = 'Google'
 
         # will be filled in later
         self._accessToken = initAccessToken
@@ -85,22 +85,6 @@ class OauthDeviceCode_Google(_BaseOauthDeviceCode):
         self.print('resp.reason=', resp.reason)
 
         return resp
-
-    def __init_old__(self, clientID, tenantID, initAccessToken=None, initRefreshToken=None,
-                     initAccessTokenExpiresAt=None):
-        self._clientID = clientID
-        self._tenantID = tenantID
-
-        # will be filled in later
-        self._accessToken = initAccessToken
-        self._refreshToken = initRefreshToken
-        self._accessTokenExpiresAt = initAccessTokenExpiresAt or time.time()  # time.time
-        self._verificationURI = None
-        self._userCode = None
-        self._deviceCode = None
-        self._deviceCodeExpiresAt = time.time()
-        self._interval = 5
-        self._lastRequest = time.time() - self._interval
 
     def GetUserCode(self):
         data = {
@@ -203,7 +187,7 @@ class OauthDeviceCode_Google(_BaseOauthDeviceCode):
                 }
             )
             self._lastRequest = time.time()
-            self.print('resp=', resp.json())
+            self.print('192 resp=', resp.json())
             self._accessToken = resp.json().get('access_token', None)
             self._refreshToken = resp.json().get('refresh_token', None)
             if self._accessToken:
@@ -217,7 +201,7 @@ class OauthDeviceCode_Microsoft(_BaseOauthDeviceCode):
         self._clientID = clientID
         self._tenantID = tenantID
 
-        self._type = 'Microsoft'
+        self.type = 'Microsoft'
         self._debug = debug
 
         # will be filled in later
@@ -392,8 +376,8 @@ class User:
             print(*a, **k)
 
     def __str__(self):
-        return '<User: ID={}, EmailAddress={}, AccessToken={}>'.format(self.ID, self.EmailAddress,
-                                                                       self.GetAcessToken()[:10] + '...')
+        return '<User: Type={}, ID={}, EmailAddress={}, AccessToken={}>'.format(self.type, self.ID, self.EmailAddress,
+                                                                                self.GetAcessToken()[:10] + '...')
 
     @property
     def ID(self):
@@ -406,7 +390,7 @@ class User:
             'refreshToken': self._oa.GetRefreshToken(),
             'expiresAt': self._oa.GetAccessTokenExpriesAt(),
             'emailAddress': self._emailAddress,
-            'type': self._oa.Type,
+            'type': self._oa.type,
         }
 
     @property
@@ -423,7 +407,7 @@ class User:
 
     @property
     def EmailAddress(self):
-        if self._oa.Type != 'Microsoft':
+        if self._oa.type != 'Microsoft':
             return
 
         if self._emailAddress is None:
@@ -445,6 +429,10 @@ class User:
 
     def GetAcessToken(self):
         return self._oa.GetAccessToken()
+
+    @property
+    def type(self):
+        return self._oa.type
 
 
 class AuthManager:
@@ -520,9 +508,16 @@ class AuthManager:
         assert isinstance(ID, str), '"ID" must be a string not {}'.format(type(ID))
 
         if authType == 'Google':
-            tempOA = OauthDeviceCode_Google(self._googleJSONpath)
+            tempOA = OauthDeviceCode_Google(
+                self._googleJSONpath,
+                debug=self._debug
+            )
         elif authType == 'Microsoft':
-            tempOA = OauthDeviceCode_Microsoft(self._microsoftClientID, self._microsoftTenantID)
+            tempOA = OauthDeviceCode_Microsoft(
+                self._microsoftClientID,
+                self._microsoftTenantID,
+                debug=self._debug,
+            )
         else:
             raise TypeError('Unrecognized authType "{}"'.format(authType))
 
@@ -539,7 +534,7 @@ class AuthManager:
                         'accessToken': tempOA.GetAccessToken(),
                         'refreshToken': tempOA.GetRefreshToken(),
                         'expiresAt': tempOA.GetAccessTokenExpriesAt(),
-                        'type': tempOA.Type,
+                        'type': tempOA.type,
                     })
                     print('New User added to AuthManager. ID="{}"'.format(ID))
                     if callback:
@@ -547,6 +542,8 @@ class AuthManager:
                     break
             else:
                 print('Device Code Expired. User was NOT created.')
+                if callback:
+                    callback(None)
 
         print('Go to "{}" and enter code "{}"'.format(tempOA.VerificationURI, userCode))
         return {
@@ -601,6 +598,7 @@ if __name__ == '__main__':
 
         authManager = AuthManager(
             googleJSONpath=JSON_PATH,
+            debug=True
         )
 
         user = authManager.GetUserByID(MY_ID)
