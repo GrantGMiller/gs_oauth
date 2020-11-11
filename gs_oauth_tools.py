@@ -275,7 +275,7 @@ class OauthDeviceCode_Microsoft(_BaseOauthDeviceCode):
         Might return None if the user has not authenticated yet
         :return: str or None
         """
-        print('GetAccessToken()')
+        self.print('GetAccessToken()')
         if time.time() - self._lastRequest < self._interval:
             # only make request once per "interval"
             return self._accessToken
@@ -306,8 +306,8 @@ class OauthDeviceCode_Microsoft(_BaseOauthDeviceCode):
                 try:
                     resp = requests.post(url, data)
                     self._lastRequest = time.time()
-                    print('Refresh Token request complete')
-                    print('resp.json()=', resp.json())
+                    self.print('Refresh Token request complete')
+                    self.print('resp.json()=', resp.json())
                     self._accessToken = resp.json().get('access_token')
                     self._refreshToken = resp.json().get('refresh_token')
                     self._accessTokenExpiresAt = time.time() + resp.json().get('expires_in')
@@ -316,9 +316,9 @@ class OauthDeviceCode_Microsoft(_BaseOauthDeviceCode):
                 return self._accessToken
             else:
                 delta = int(self._accessTokenExpiresAt - time.time())
-                print('The access token will expire in {}'.format(
+                self.print('The access token will expire in {}'.format(
                     datetime.timedelta(seconds=delta)))
-                print('The access token is still good, return it.')
+                self.print('The access token is still good, return it.')
                 return self._accessToken
         else:
             # This is the first time we are retrieving an access token
@@ -419,8 +419,8 @@ class User:
                     'Content-Type': 'application/json',
                 }
             )
-            print('resp.json()=', resp.json())
-            print('resp.status_code=', resp.status_code)
+            self.print('resp.json()=', resp.json())
+            self.print('resp.status_code=', resp.status_code)
             if resp.status_code == 200:
                 self._emailAddress = resp.json().get('EmailAddress', None)
                 self._authManagerParent.Update(self)
@@ -428,7 +428,7 @@ class User:
         return self._emailAddress
 
     def GetAcessToken(self):
-        return self._oa.GetAccessToken()
+        return self.AccessToken
 
     @property
     def type(self):
