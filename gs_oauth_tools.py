@@ -283,7 +283,7 @@ class OauthDeviceCode_Microsoft(_BaseOauthDeviceCode):
         if self._accessToken:
             # we already received an access token previously
             if time.time() > self._accessTokenExpiresAt:
-                print('The accessToken is expired, use the refreshToken to get a new one')
+                self.print('The accessToken is expired, use the refreshToken to get a new one')
 
                 if USE_COMMON_TENANT:
                     url = 'https://login.microsoftonline.com/common/oauth2/v2.0/token'
