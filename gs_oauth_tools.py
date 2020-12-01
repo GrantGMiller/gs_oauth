@@ -66,8 +66,9 @@ class OauthDeviceCode_Google(_BaseOauthDeviceCode):
                 'scope': ' '.join([
                     'https://www.googleapis.com/auth/calendar',
                     'https://www.googleapis.com/auth/admin.directory.user',
-                    'https://www.googleapis.com/auth/admin.directory.resource.calendar'
+                    'https://www.googleapis.com/auth/admin.directory.resource.calendar',
                     # to read the resource "capacity"
+                    # 'https://www.googleapis.com/auth/drive.readonly',
                 ]),
                 'access_type': 'offline',
                 'response_type': 'code',
@@ -91,6 +92,7 @@ class OauthDeviceCode_Google(_BaseOauthDeviceCode):
             'client_id': self._creds['installed']['client_id'],
             'scope': ' '.join([
                 'https://www.googleapis.com/auth/calendar',
+                # 'https://www.googleapis.com/auth/drive.readonly', # waiting for Google to "verify" my app
                 # 'https://www.googleapis.com/auth/admin.directory.resource.calendar.readonly', # to read directory, but giving an "invalid_scope" error so idk
                 # 'https://www.googleapis.com/auth/admin.directory.resource.calendar',  # to read the resource "capacity"
 
@@ -103,6 +105,8 @@ class OauthDeviceCode_Google(_BaseOauthDeviceCode):
         if not resp.ok:
             self.print('url=', url)
             self.print('data=', data)
+            print('resp.text=', resp.text)
+            raise PermissionError(resp.text)
             return
 
         self._verificationURI = resp.json().get('verification_url')
@@ -123,6 +127,7 @@ class OauthDeviceCode_Google(_BaseOauthDeviceCode):
         return self._interval
 
     def DeviceCodeExpired(self):
+        self.print('time until code expires', self._deviceCodeExpiresAt - time.time())
         return time.time() > self._deviceCodeExpiresAt
 
     def GetRefreshToken(self):
