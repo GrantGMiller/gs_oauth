@@ -9,7 +9,7 @@ except:
 
 from urllib.parse import urlencode
 
-# based on the steps here:https://developers.google.com/identity/protocols/OAuth2ForDevices
+# Google based on the steps here:https://developers.google.com/identity/protocols/OAuth2ForDevices
 try:
     from persistent_variables import PersistentVariables as PV
     import aes_tools
@@ -25,6 +25,12 @@ USE_COMMON_TENANT = False  # per microsoft: Usage of the /common endpoint is not
 SCOPE_EWS = [
     'https://outlook.office.com/Calendars.ReadWrite',
     'https://outlook.office.com/EWS.AccessAsUser.All',
+
+    # below are already included automatically
+    # 'openid',
+    # 'offline_access',
+    # 'email',
+    # 'User.Read',
 ]
 SCOPE_ONEDRIVE = ['https://graph.microsoft.com/Files.ReadWrite.All']
 
@@ -406,8 +412,12 @@ class User:
             print(*a, **k)
 
     def __str__(self):
-        return '<User: Type={}, ID={}, EmailAddress={}, AccessToken={}>'.format(self.type, self.ID, self.EmailAddress,
-                                                                                self.GetAcessToken()[:10] + '...')
+        return '<User: Type={}, ID={}, EmailAddress={}, AccessToken={}>'.format(
+            self.type,
+            self.ID,
+            self.EmailAddress,
+            self.GetAcessToken()[:10] + '...',
+        )
 
     @property
     def ID(self):
@@ -439,13 +449,14 @@ class User:
 
     @property
     def EmailAddress(self):
+        self.print('\nproperty EmailAddress')
         if self._oa.type != 'Microsoft':
             return
 
         if self._emailAddress is None:
             resp = requests.get(
-                # 'https://graph.microsoft.com/v1.0/me',
-                'https://outlook.office.com/api/v2.0/me',
+                'https://graph.microsoft.com/v1.0/me',
+                # 'https://outlook.office.com/api/v2.0/me',
                 headers={
                     'Authorization': 'Bearer {}'.format(self._oa.GetAccessToken()),
                     'Content-Type': 'application/json',
@@ -454,7 +465,7 @@ class User:
             self.print('resp.json()=', resp.json())
             self.print('resp.status_code=', resp.status_code)
             if resp.status_code == 200:
-                self._emailAddress = resp.json().get('EmailAddress', None)
+                self._emailAddress = resp.json().get('mail', None)
                 self._authManagerParent.Update(self)
 
         return self._emailAddress
@@ -475,7 +486,8 @@ class AuthManager:
                  debug=False,
                  fileClass=File,
                  scopes=None,
-                 **k # for some reason putting a "," here causes a syntax error in python 3.5 (specifically Extron Global Scripter)
+                 **k
+                 # for some reason putting a "," here causes a syntax error in python 3.5 (specifically Extron Global Scripter)
                  ):
         self._microsoftClientID = microsoftClientID
         self._microsoftTenantID = microsoftTenantID
@@ -606,12 +618,13 @@ if __name__ == '__main__':
 
         import webbrowser
 
-        MY_ID = '3888'
+        MY_ID = '9999'
         TYPE = 'Microsoft'
 
         authManager = AuthManager(
             microsoftClientID=creds.clientID,
             microsoftTenantID=creds.tenantID,
+            debug=True,
         )
 
         user = authManager.GetUserByID(MY_ID)
@@ -662,5 +675,5 @@ if __name__ == '__main__':
         print('user=', user)
 
 
-    # TestMicrosoft()
-    TestGoogle()
+    TestMicrosoft()
+    # TestGoogle()
