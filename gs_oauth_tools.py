@@ -9,7 +9,7 @@ except:
 
 from urllib.parse import urlencode
 
-# Google based on the steps here:https://developers.google.com/identity/protocols/OAuth2ForDevices
+# based on the steps here:https://developers.google.com/identity/protocols/OAuth2ForDevices
 try:
     from persistent_variables import PersistentVariables as PV
     import aes_tools
@@ -20,19 +20,7 @@ except Exception as e:
         print(e)
 from extronlib.system import File, Wait, ProgramLog
 
-USE_COMMON_TENANT = False  # per microsoft: Usage of the /common endpoint is not supported for such applications created after '10/15/2018'
-
-SCOPE_EWS = [
-    'https://outlook.office.com/Calendars.ReadWrite',
-    'https://outlook.office.com/EWS.AccessAsUser.All',
-
-    # below are already included automatically
-    # 'openid',
-    # 'offline_access',
-    # 'email',
-    # 'User.Read',
-]
-SCOPE_ONEDRIVE = ['https://graph.microsoft.com/Files.ReadWrite.All']
+USE_COMMON_TENANT = True  # per microsoft: Usage of the /common endpoint is not supported for such applications created after '10/15/2018'
 
 
 class _BaseOauthDeviceCode:
@@ -43,11 +31,9 @@ class OauthDeviceCode_Google(_BaseOauthDeviceCode):
     # https://console.developers.google.com/apis/dashboard
 
     def __init__(self, jsonPath, initAccessToken=None, initRefreshToken=None,
-                 initAccessTokenExpiresAt=None, debug=False, scopes=None, **k):
+                 initAccessTokenExpiresAt=None, debug=False):
 
         self._debug = debug
-        self.scopes = scopes or []
-        self.kwargs = k
 
         with File(jsonPath, mode='rt') as file:
             self._creds = json.loads(file.read())
@@ -78,12 +64,12 @@ class OauthDeviceCode_Google(_BaseOauthDeviceCode):
                 'client_id': self._creds['installed']['client_id'],
                 'redirect_uri': self._creds['installed']['redirect_uris'][-1],
                 'scope': ' '.join([
-                                      'https://www.googleapis.com/auth/calendar',
-                                      'https://www.googleapis.com/auth/admin.directory.user',
-                                      'https://www.googleapis.com/auth/admin.directory.resource.calendar',
-                                      # to read the resource "capacity"
-                                      # 'https://www.googleapis.com/auth/drive.readonly',
-                                  ] + self.scopes),
+                    'https://www.googleapis.com/auth/calendar',
+                    'https://www.googleapis.com/auth/admin.directory.user',
+                    'https://www.googleapis.com/auth/admin.directory.resource.calendar',
+                    # to read the resource "capacity"
+                    # 'https://www.googleapis.com/auth/drive.readonly',
+                ]),
                 'access_type': 'offline',
                 'response_type': 'code',
             })
@@ -105,12 +91,12 @@ class OauthDeviceCode_Google(_BaseOauthDeviceCode):
         data = {
             'client_id': self._creds['installed']['client_id'],
             'scope': ' '.join([
-                                  'https://www.googleapis.com/auth/calendar',
-                                  # 'https://www.googleapis.com/auth/drive.readonly', # waiting for Google to "verify" my app
-                                  # 'https://www.googleapis.com/auth/admin.directory.resource.calendar.readonly', # to read directory, but giving an "invalid_scope" error so idk
-                                  # 'https://www.googleapis.com/auth/admin.directory.resource.calendar',  # to read the resource "capacity"
+                'https://www.googleapis.com/auth/calendar',
+                # 'https://www.googleapis.com/auth/drive.readonly', # waiting for Google to "verify" my app
+                # 'https://www.googleapis.com/auth/admin.directory.resource.calendar.readonly', # to read directory, but giving an "invalid_scope" error so idk
+                # 'https://www.googleapis.com/auth/admin.directory.resource.calendar',  # to read the resource "capacity"
 
-                              ] + self.scopes),
+            ]),
         }
         url = 'https://accounts.google.com/o/oauth2/device/code'
         resp = requests.post(url, data=data)
@@ -216,26 +202,12 @@ class OauthDeviceCode_Google(_BaseOauthDeviceCode):
 
 class OauthDeviceCode_Microsoft(_BaseOauthDeviceCode):
     def __init__(self, clientID, tenantID, initAccessToken=None, initRefreshToken=None, initAccessTokenExpiresAt=None,
-                 debug=False, scopes=None, **k):
-        '''
-
-        :param clientID:
-        :param tenantID:
-        :param initAccessToken:
-        :param initRefreshToken:
-        :param initAccessTokenExpiresAt:
-        :param debug:
-        :param scopes: list of strings
-        '''
+                 debug=False):
         self._clientID = clientID
         self._tenantID = tenantID
 
         self.type = 'Microsoft'
         self._debug = debug
-        self.scopes = scopes or []
-        self.kwargs = k
-        if 'scopeOneDrive' in self.kwargs and self.kwargs['scopeOneDrive']:
-            self.scopes += SCOPE_ONEDRIVE
 
         # will be filled in later
         self._accessToken = initAccessToken
@@ -256,11 +228,13 @@ class OauthDeviceCode_Microsoft(_BaseOauthDeviceCode):
         data = {
             'client_id': self._clientID,
             'scope': ' '.join([
-                                  'openid',
-                                  'offline_access',
-                                  'email',
-                                  'User.Read'
-                              ] + self.scopes),
+                'openid',
+                'offline_access',
+                'https://outlook.office.com/Calendars.ReadWrite',
+                'https://outlook.office.com/EWS.AccessAsUser.All',
+                'email',
+                'User.Read'
+            ]),
         }
         url = 'https://login.microsoftonline.com/{}/oauth2/v2.0/devicecode'.format(self._tenantID)
         resp = requests.post(url, data=data)
@@ -324,13 +298,13 @@ class OauthDeviceCode_Microsoft(_BaseOauthDeviceCode):
                 data = {
                     'client_id': self._clientID,
                     'scope': ' '.join([
-                                          'openid',
-                                          'offline_access',
-                                          # 'https://outlook.office.com/Calendars.ReadWrite',
-                                          # 'https://outlook.office.com/EWS.AccessAsUser.All',
-                                          'email',
-                                          'User.Read'
-                                      ] + self.scopes),
+                        'openid',
+                        'offline_access',
+                        'https://outlook.office.com/Calendars.ReadWrite',
+                        'https://outlook.office.com/EWS.AccessAsUser.All',
+                        'email',
+                        'User.Read'
+                    ]),
                     'refresh_token': self._refreshToken,
                     'grant_type': 'refresh_token',
                 }
@@ -377,11 +351,9 @@ class OauthDeviceCode_Microsoft(_BaseOauthDeviceCode):
 
 
 class User:
-    def __init__(self, ID, authManagerParent, authType, debug=False, scopes=None, **k):
+    def __init__(self, ID, authManagerParent, authType, debug=False):
         self._debug = debug
         self._ID = ID
-        self.scopes = scopes or []
-        self.kwargs = k
 
         data = authManagerParent.Get(self)
         if authType == 'Google':
@@ -391,7 +363,6 @@ class User:
                 initRefreshToken=data.get('refreshToken', None),
                 initAccessTokenExpiresAt=data.get('expiresAt', None),
                 debug=self._debug,
-                **self.kwargs,
             )
         elif authType == 'Microsoft':
             self._oa = OauthDeviceCode_Microsoft(
@@ -401,8 +372,6 @@ class User:
                 initRefreshToken=data.get('refreshToken', None),
                 initAccessTokenExpiresAt=data.get('expiresAt', None),
                 debug=self._debug,
-                scopes=self.scopes,
-                **self.kwargs,
             )
         self._emailAddress = data.get('emailAddress', None)
         self._authManagerParent = authManagerParent
@@ -412,12 +381,8 @@ class User:
             print(*a, **k)
 
     def __str__(self):
-        return '<User: Type={}, ID={}, EmailAddress={}, AccessToken={}>'.format(
-            self.type,
-            self.ID,
-            self.EmailAddress,
-            self.GetAcessToken()[:10] + '...',
-        )
+        return '<User: Type={}, ID={}, EmailAddress={}, AccessToken={}>'.format(self.type, self.ID, self.EmailAddress,
+                                                                                self.GetAcessToken()[:10] + '...')
 
     @property
     def ID(self):
@@ -431,8 +396,6 @@ class User:
             'expiresAt': self._oa.GetAccessTokenExpriesAt(),
             'emailAddress': self._emailAddress,
             'type': self._oa.type,
-            'scopes': self.scopes,
-            'kwargs': self.kwargs,
         }
 
     @property
@@ -449,14 +412,13 @@ class User:
 
     @property
     def EmailAddress(self):
-        self.print('\nproperty EmailAddress')
         if self._oa.type != 'Microsoft':
             return
 
         if self._emailAddress is None:
             resp = requests.get(
-                'https://graph.microsoft.com/v1.0/me',
-                # 'https://outlook.office.com/api/v2.0/me',
+                # 'https://graph.microsoft.com/v1.0/me',
+                'https://outlook.office.com/api/v2.0/me',
                 headers={
                     'Authorization': 'Bearer {}'.format(self._oa.GetAccessToken()),
                     'Content-Type': 'application/json',
@@ -465,7 +427,7 @@ class User:
             self.print('resp.json()=', resp.json())
             self.print('resp.status_code=', resp.status_code)
             if resp.status_code == 200:
-                self._emailAddress = resp.json().get('mail', None)
+                self._emailAddress = resp.json().get('EmailAddress', None)
                 self._authManagerParent.Update(self)
 
         return self._emailAddress
@@ -485,16 +447,11 @@ class AuthManager:
                  googleJSONpath=None,
                  debug=False,
                  fileClass=File,
-                 scopes=None,
-                 **k
-                 # for some reason putting a "," here causes a syntax error in python 3.5 (specifically Extron Global Scripter)
                  ):
         self._microsoftClientID = microsoftClientID
         self._microsoftTenantID = microsoftTenantID
         self._googleJSONpath = googleJSONpath
         self._debug = debug
-        self.scopes = scopes or []
-        self.kwargs = k
 
         self._pv = PV(
             'OAuth.json',
@@ -548,8 +505,6 @@ class AuthManager:
                 authManagerParent=self,
                 authType=d[ID]['type'],
                 debug=self._debug,
-                scopes=self.scopes,
-                **self.kwargs,
             )
         else:
             return None  # no user exist, you can use CreateNewUser if you like
@@ -560,16 +515,13 @@ class AuthManager:
         if authType == 'Google':
             tempOA = OauthDeviceCode_Google(
                 self._googleJSONpath,
-                debug=self._debug,
-                **self.kwargs
+                debug=self._debug
             )
         elif authType == 'Microsoft':
             tempOA = OauthDeviceCode_Microsoft(
                 self._microsoftClientID,
                 self._microsoftTenantID,
                 debug=self._debug,
-                scopes=self.scopes,
-                **self.kwargs
             )
         else:
             raise TypeError('Unrecognized authType "{}"'.format(authType))
@@ -588,8 +540,6 @@ class AuthManager:
                         'refreshToken': tempOA.GetRefreshToken(),
                         'expiresAt': tempOA.GetAccessTokenExpriesAt(),
                         'type': tempOA.type,
-                        'scopes': self.scopes,
-                        'kwargs': self.kwargs,
                     })
                     print('New User added to AuthManager. ID="{}"'.format(ID))
                     if callback:
@@ -618,13 +568,12 @@ if __name__ == '__main__':
 
         import webbrowser
 
-        MY_ID = '9999'
+        MY_ID = '3888'
         TYPE = 'Microsoft'
 
         authManager = AuthManager(
             microsoftClientID=creds.clientID,
             microsoftTenantID=creds.tenantID,
-            debug=True,
         )
 
         user = authManager.GetUserByID(MY_ID)
@@ -649,7 +598,7 @@ if __name__ == '__main__':
         import creds
         import webbrowser
         MY_ID = '3888'
-        JSON_PATH = 'google.json'
+        JSON_PATH = 'google_test_creds.json'
         TYPE = 'Google'
 
         authManager = AuthManager(
@@ -675,5 +624,5 @@ if __name__ == '__main__':
         print('user=', user)
 
 
-    TestMicrosoft()
-    # TestGoogle()
+    # TestMicrosoft()
+    TestGoogle()
