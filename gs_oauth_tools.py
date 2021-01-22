@@ -382,7 +382,7 @@ class User:
 
     def __str__(self):
         return '<User: Type={}, ID={}, EmailAddress={}, AccessToken={}>'.format(self.type, self.ID, self.EmailAddress,
-                                                                                self.GetAcessToken()[:10] + '...')
+                                                                                self.GetAccessToken()[:10] + '...')
 
     @property
     def ID(self):
@@ -432,7 +432,7 @@ class User:
 
         return self._emailAddress
 
-    def GetAcessToken(self):
+    def GetAccessToken(self):
         return self.AccessToken
 
     @property
