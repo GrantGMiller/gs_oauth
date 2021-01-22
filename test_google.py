@@ -4,7 +4,7 @@ import webbrowser
 import creds
 import gs_oauth_tools
 
-TYPE = 'GoogleCalendar'
+TYPE = 'Google'
 
 MY_ID = '3888'
 

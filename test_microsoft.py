@@ -4,7 +4,7 @@ import webbrowser
 import creds
 import gs_oauth_tools
 
-TYPE = 'EWS'
+TYPE = 'Microsoft'
 
 MY_ID = '9999'
 
