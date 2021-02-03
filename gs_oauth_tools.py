@@ -441,13 +441,14 @@ class User:
 
 
 class AuthManager:
-    def __init__(self,
-                 microsoftClientID=None,
-                 microsoftTenantID=None,
-                 googleJSONpath=None,
-                 debug=False,
-                 fileClass=File,
-                 ):
+    def __init__(
+            self,
+            microsoftClientID=None,
+            microsoftTenantID=None,
+            googleJSONpath=None,
+            debug=False,
+            fileClass=File,
+    ):
         self._microsoftClientID = microsoftClientID
         self._microsoftTenantID = microsoftTenantID
         self._googleJSONpath = googleJSONpath
@@ -461,7 +462,7 @@ class AuthManager:
         '''
         Data stored like this:
         {
-        str(rfidBadgeNumber): {
+        str(uniqueID): {
             'type': str #like 'Google' or 'Microsoft'
             'accessToken': str(),
             'refreshToken': str(),
