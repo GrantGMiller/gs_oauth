@@ -18,7 +18,11 @@ except Exception as e:
         print('no aes_tools module found. Credentials will be stored in plain text')
     else:
         print(e)
-from extronlib.system import File, Wait, ProgramLog
+
+try:
+    from extronlib_pro import File, Wait, ProgramLog
+except:
+    from extronlib.system import File, Wait, ProgramLog
 
 USE_COMMON_TENANT = True  # per microsoft: Usage of the /common endpoint is not supported for such applications created after '10/15/2018'
 
@@ -488,7 +492,7 @@ class AuthManager:
     def GoogleData(self):
         with open(self._googleJSONpath, mode='rt') as file:
             d = json.loads(file.read())['installed']
-            return d
+        return d
 
     def Update(self, userObj):
         self._pv.Set(userObj.ID, userObj.Data)
