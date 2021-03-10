@@ -18,7 +18,6 @@ except Exception as e:
         print('no aes_tools module found. Credentials will be stored in plain text')
     else:
         print(e)
-
 try:
     from extronlib_pro import File, Wait, ProgramLog
 except:
@@ -242,8 +241,8 @@ class OauthDeviceCode_Microsoft(_BaseOauthDeviceCode):
         }
         url = 'https://login.microsoftonline.com/{}/oauth2/v2.0/devicecode'.format(self._tenantID)
         resp = requests.post(url, data=data)
-        print('resp=', resp.json())
-        if not 200 <= resp.status_code < 300:
+        print('245 resp=', resp.json())
+        if not resp.ok:
             print('url=', url)
             print('data=', data)
             print('resp.reason=', resp.reason)
@@ -255,7 +254,7 @@ class OauthDeviceCode_Microsoft(_BaseOauthDeviceCode):
         self._interval = resp.json().get('interval')
         self._deviceCodeExpiresAt = time.time() + resp.json().get('expires_in', 0)
         self._lastRequest = time.time()
-        print('')
+
         return self._userCode
 
     @property
