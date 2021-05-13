@@ -10,8 +10,9 @@ except:
 from urllib.parse import urlencode
 
 # based on the steps here:https://developers.google.com/identity/protocols/OAuth2ForDevices
+from persistent_variables import PersistentVariables as PV
+
 try:
-    from persistent_variables import PersistentVariables as PV
     import aes_tools
 except Exception as e:
     if 'aes_tools' in e.args:
@@ -24,6 +25,11 @@ except:
     from extronlib.system import File, Wait, ProgramLog
 
 USE_COMMON_TENANT = True  # per microsoft: Usage of the /common endpoint is not supported for such applications created after '10/15/2018'
+
+GOOGLE_SCOPES = [
+    'https://www.googleapis.com/auth/calendar',
+    'https://www.googleapis.com/auth/drive.file',
+]
 
 
 class _BaseOauthDeviceCode:
@@ -66,13 +72,7 @@ class OauthDeviceCode_Google(_BaseOauthDeviceCode):
             urlencode({
                 'client_id': self._creds['installed']['client_id'],
                 'redirect_uri': self._creds['installed']['redirect_uris'][-1],
-                'scope': ' '.join([
-                    'https://www.googleapis.com/auth/calendar',
-                    'https://www.googleapis.com/auth/admin.directory.user',
-                    'https://www.googleapis.com/auth/admin.directory.resource.calendar',
-                    # to read the resource "capacity"
-                    # 'https://www.googleapis.com/auth/drive.readonly',
-                ]),
+                'scope': ' '.join(GOOGLE_SCOPES),
                 'access_type': 'offline',
                 'response_type': 'code',
             })
@@ -93,13 +93,7 @@ class OauthDeviceCode_Google(_BaseOauthDeviceCode):
     def GetUserCode(self):
         data = {
             'client_id': self._creds['installed']['client_id'],
-            'scope': ' '.join([
-                'https://www.googleapis.com/auth/calendar',
-                # 'https://www.googleapis.com/auth/drive.readonly', # waiting for Google to "verify" my app
-                # 'https://www.googleapis.com/auth/admin.directory.resource.calendar.readonly', # to read directory, but giving an "invalid_scope" error so idk
-                # 'https://www.googleapis.com/auth/admin.directory.resource.calendar',  # to read the resource "capacity"
-
-            ]),
+            'scope': ' '.join(GOOGLE_SCOPES),
         }
         url = 'https://accounts.google.com/o/oauth2/device/code'
         resp = requests.post(url, data=data)
@@ -222,6 +216,7 @@ class OauthDeviceCode_Microsoft(_BaseOauthDeviceCode):
         self._deviceCodeExpiresAt = time.time()
         self._interval = 5
         self._lastRequest = time.time() - self._interval
+        self.message = None
 
     def print(self, *a, **k):
         if self._debug:
@@ -254,6 +249,7 @@ class OauthDeviceCode_Microsoft(_BaseOauthDeviceCode):
         self._interval = resp.json().get('interval')
         self._deviceCodeExpiresAt = time.time() + resp.json().get('expires_in', 0)
         self._lastRequest = time.time()
+        self.message = resp.json().get('message', None)
 
         return self._userCode
 
@@ -459,7 +455,6 @@ class AuthManager:
 
         self._pv = PV(
             'OAuth.json',
-            fileClass=fileClass,
             fileMode='t' if fileClass == File else 'b',
         )
         '''
