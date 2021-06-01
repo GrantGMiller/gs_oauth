@@ -381,7 +381,7 @@ class User:
 
     def __str__(self):
         return '<User: Type={}, ID={}, EmailAddress={}, AccessToken={}>'.format(self.type, self.ID, self.EmailAddress,
-                                                                                self.GetAccessToken()[:10] + '...')
+                                                                                self.GetAccessToken()[:10] + '...' if self.GetAccessToken() else None)
 
     @property
     def ID(self):
