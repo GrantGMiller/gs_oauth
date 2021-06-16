@@ -31,9 +31,25 @@ GOOGLE_SCOPES = [
     'https://www.googleapis.com/auth/drive.file',
 ]
 
+MICROSOFT_SCOPES = [
+    'openid',
+    'offline_access',
+    'https://outlook.office.com/Calendars.ReadWrite',
+    'https://outlook.office.com/EWS.AccessAsUser.All',
+    'email',
+    'User.Read'
+]
+
+
+def SetMicrosoftScopes(scopeList):
+    global MICROSOFT_SCOPES
+    MICROSOFT_SCOPES = scopeList
+
 
 class _BaseOauthDeviceCode:
-    pass
+    def print(self, *a, **k):
+        if self._debug:
+            print(*a, **k)
 
 
 class OauthDeviceCode_Google(_BaseOauthDeviceCode):
@@ -61,6 +77,7 @@ class OauthDeviceCode_Google(_BaseOauthDeviceCode):
         self._deviceCodeExpiresAt = time.time()
         self._interval = 5
         self._lastRequest = time.time() - self._interval
+        self.message = None
 
     def print(self, *a, **k):
         if self._debug:
@@ -225,21 +242,14 @@ class OauthDeviceCode_Microsoft(_BaseOauthDeviceCode):
     def GetUserCode(self):
         data = {
             'client_id': self._clientID,
-            'scope': ' '.join([
-                'openid',
-                'offline_access',
-                'https://outlook.office.com/Calendars.ReadWrite',
-                'https://outlook.office.com/EWS.AccessAsUser.All',
-                'email',
-                'User.Read'
-            ]),
+            'scope': ' '.join(MICROSOFT_SCOPES),
         }
         url = 'https://login.microsoftonline.com/{}/oauth2/v2.0/devicecode'.format(self._tenantID)
         resp = requests.post(url, data=data)
         print('245 resp=', resp.json())
         if not resp.ok:
             print('url=', url)
-            print('data=', data)
+            print('249 data=', data)
             print('resp.reason=', resp.reason)
             return
 
@@ -296,14 +306,7 @@ class OauthDeviceCode_Microsoft(_BaseOauthDeviceCode):
 
                 data = {
                     'client_id': self._clientID,
-                    'scope': ' '.join([
-                        'openid',
-                        'offline_access',
-                        'https://outlook.office.com/Calendars.ReadWrite',
-                        'https://outlook.office.com/EWS.AccessAsUser.All',
-                        'email',
-                        'User.Read'
-                    ]),
+                    'scope': ' '.join(MICROSOFT_SCOPES),
                     'refresh_token': self._refreshToken,
                     'grant_type': 'refresh_token',
                 }
@@ -381,7 +384,8 @@ class User:
 
     def __str__(self):
         return '<User: Type={}, ID={}, EmailAddress={}, AccessToken={}>'.format(self.type, self.ID, self.EmailAddress,
-                                                                                self.GetAccessToken()[:10] + '...' if self.GetAccessToken() else None)
+                                                                                self.GetAccessToken()[
+                                                                                :10] + '...' if self.GetAccessToken() else None)
 
     @property
     def ID(self):
@@ -416,7 +420,7 @@ class User:
 
         if self._emailAddress is None:
             resp = requests.get(
-                # 'https://graph.microsoft.com/v1.0/me',
+                # 'https://graph.microsoft.com/v1.0/me', #invalid audience
                 'https://outlook.office.com/api/v2.0/me',
                 headers={
                     'Authorization': 'Bearer {}'.format(self._oa.GetAccessToken()),
@@ -470,6 +474,10 @@ class AuthManager:
         }
         '''
 
+    def print(self, *a, **k):
+        if self._debug:
+            print(*a, **k)
+
     @property
     def ClientID(self):
         return self._microsoftClientID
@@ -508,22 +516,51 @@ class AuthManager:
         else:
             return None  # no user exist, you can use CreateNewUser if you like
 
-    def CreateNewUser(self, ID, authType='Microsoft', callback=None):
+    def CreateNewUser(
+            self,
+            ID,
+            authType='Microsoft',
+            callback=None,
+            initAccessToken=None,
+            initRefreshToken=None,
+    ):
+        self.print('CreateNewUser(', ID, authType, callback, initAccessToken, initRefreshToken)
         assert isinstance(ID, str), '"ID" must be a string not {}'.format(type(ID))
 
         if authType == 'Google':
             tempOA = OauthDeviceCode_Google(
                 self._googleJSONpath,
-                debug=self._debug
+                debug=self._debug,
+                initAccessToken=initAccessToken,
+                initRefreshToken=initRefreshToken,
+                initAccessTokenExpiresAt=time.time() if initAccessToken else None,  # assume its expired
             )
         elif authType == 'Microsoft':
             tempOA = OauthDeviceCode_Microsoft(
                 self._microsoftClientID,
                 self._microsoftTenantID,
                 debug=self._debug,
+                initAccessToken=initAccessToken,
+                initRefreshToken=initRefreshToken,
+                initAccessTokenExpiresAt=time.time() if initAccessToken else None,  # assume its expired
             )
         else:
             raise TypeError('Unrecognized authType "{}"'.format(authType))
+
+        if callback and initAccessToken and tempOA.GetAccessToken():
+            self._pv.Set(ID, {
+                'accessToken': tempOA.GetAccessToken(),
+                'refreshToken': tempOA.GetRefreshToken(),
+                'expiresAt': tempOA.GetAccessTokenExpriesAt(),
+                'type': tempOA.type,
+            })
+            print('InitAccessToken New User added to AuthManager. ID="{}"'.format(ID))
+            user = self.GetUserByID(ID)
+            if callback and user:
+                callback(user)
+            return {
+                'message': 'The user was created using the existing tokens'
+            }
 
         userCode = tempOA.GetUserCode()
 
@@ -553,6 +590,7 @@ class AuthManager:
         return {
             'verification_uri': tempOA.VerificationURI,
             'user_code': userCode,
+            'message': tempOA.message,
         }
 
 
