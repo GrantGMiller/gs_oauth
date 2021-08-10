@@ -33,7 +33,7 @@ Example Microsoft Office 365
 
         d = authManager.CreateNewUser(MY_ID, authType=TYPE)
         print('Go to this site:', d.get('verification_uri'))
-        print('Enter this User Code=', d.get('user_code'))
+        print('Enter this User Code:', d.get('user_code'))
 
     while True:
         user = authManager.GetUserByID(MY_ID)
@@ -46,6 +46,9 @@ Example Microsoft Office 365
 
     print('user=', user)
 
+You can find the *microsoftClientID* and *microsoftTenantID* in your App Registrations on https://portal.azure.com/#blade/Microsoft_AAD_IAM/ActiveDirectoryMenuBlade/RegisteredApps
+
+This URL can be helpful to easily fetch your organizations OPENID config: https://login.microsoftonline.com/extron.onmicrosoft.com/.well-known/openid-configuration
 
 Example Google
 ==============
@@ -66,7 +69,7 @@ Example Google
 
         d = authManager.CreateNewUser(MY_ID, authType=TYPE)
         print('Go to this site:', d.get('verification_uri'))
-        print('Enter this User Code=', d.get('user_code'))
+        print('Enter this User Code:', d.get('user_code'))
 
     while True:
         user = authManager.GetUserByID(MY_ID)

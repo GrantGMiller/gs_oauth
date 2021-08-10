@@ -24,7 +24,7 @@ try:
 except:
     from extronlib.system import File, Wait, ProgramLog
 
-USE_COMMON_TENANT = True  # per microsoft: Usage of the /common endpoint is not supported for such applications created after '10/15/2018'
+# USE_COMMON_TENANT = False  # per microsoft: Usage of the /common endpoint is not supported for such applications created after '10/15/2018'
 
 GOOGLE_SCOPES = [
     'https://www.googleapis.com/auth/calendar',
@@ -35,7 +35,7 @@ MICROSOFT_SCOPES = [
     'openid',
     'offline_access',
     'https://outlook.office.com/Calendars.ReadWrite',
-    'https://outlook.office.com/EWS.AccessAsUser.All',
+    # 'https://outlook.office.com/EWS.AccessAsUser.All',
     'email',
     'User.Read'
 ]
@@ -56,13 +56,28 @@ class OauthDeviceCode_Google(_BaseOauthDeviceCode):
     # https://console.developers.google.com/apis/dashboard
 
     def __init__(self, jsonPath, initAccessToken=None, initRefreshToken=None,
-                 initAccessTokenExpiresAt=None, debug=False):
+                 initAccessTokenExpiresAt=None, debug=False, **kwargs):
+        # pass kwargs like
+        # google_client_id='',
+        # google_client_secret='',
+        # google_auth_uri='',
+        # google_redirect_uris='',
 
         self._debug = debug
 
-        with File(jsonPath, mode='rt') as file:
-            self._creds = json.loads(file.read())
+        self.print('kwargs=', kwargs)
 
+        if jsonPath:
+            with File(jsonPath, mode='rt') as file:
+                self._creds = json.loads(file.read())
+        else:
+            self._creds = {'installed': {}}
+            for key, value in kwargs.items():
+                if key.startswith('google'):
+                    key = key.replace('google_', '')
+                    self._creds['installed'][key] = value
+
+        self.print('self._creds=', self._creds)
         self._session = requests.session()
 
         self.type = 'Google'
@@ -169,6 +184,7 @@ class OauthDeviceCode_Google(_BaseOauthDeviceCode):
             if time.time() > self._accessTokenExpiresAt:
                 self.print('The accessToken is expired, use the refreshToken to get a new one')
                 url = 'https://oauth2.googleapis.com/token'
+                self.print('self._creds=', self._creds)
                 data = {
                     'client_id': self._creds['installed']['client_id'],
                     'client_secret': self._creds['installed']['client_secret'],
@@ -215,13 +231,22 @@ class OauthDeviceCode_Google(_BaseOauthDeviceCode):
 
 
 class OauthDeviceCode_Microsoft(_BaseOauthDeviceCode):
-    def __init__(self, clientID, tenantID, initAccessToken=None, initRefreshToken=None, initAccessTokenExpiresAt=None,
-                 debug=False):
+    def __init__(
+            self,
+            clientID,
+            tenantID,
+            initAccessToken=None,
+            initRefreshToken=None,
+            initAccessTokenExpiresAt=None,
+            gcc=False,
+            debug=False
+    ):
         self._clientID = clientID
         self._tenantID = tenantID
 
         self.type = 'Microsoft'
         self._debug = debug
+        self._gcc = gcc
 
         # will be filled in later
         self._accessToken = initAccessToken
@@ -244,7 +269,10 @@ class OauthDeviceCode_Microsoft(_BaseOauthDeviceCode):
             'client_id': self._clientID,
             'scope': ' '.join(MICROSOFT_SCOPES),
         }
-        url = 'https://login.microsoftonline.com/{}/oauth2/v2.0/devicecode'.format(self._tenantID)
+        if self._gcc:
+            url = 'https://login.microsoftonline.us/{}/oauth2/v2.0/devicecode'.format(self._tenantID)
+        else:
+            url = 'https://login.microsoftonline.com/{}/oauth2/v2.0/devicecode'.format(self._tenantID)
         resp = requests.post(url, data=data)
         print('245 resp=', resp.json())
         if not resp.ok:
@@ -299,8 +327,8 @@ class OauthDeviceCode_Microsoft(_BaseOauthDeviceCode):
             if time.time() > self._accessTokenExpiresAt:
                 self.print('The accessToken is expired, use the refreshToken to get a new one')
 
-                if USE_COMMON_TENANT:
-                    url = 'https://login.microsoftonline.com/common/oauth2/v2.0/token'
+                if self._gcc:
+                    url = 'https://login.microsoftonline.us/{}/oauth2/v2.0/token'.format(self._tenantID)
                 else:
                     url = 'https://login.microsoftonline.com/{}/oauth2/v2.0/token'.format(self._tenantID)
 
@@ -330,8 +358,8 @@ class OauthDeviceCode_Microsoft(_BaseOauthDeviceCode):
         else:
             # This is the first time we are retrieving an access token
 
-            if USE_COMMON_TENANT:
-                url = 'https://login.microsoftonline.com/common/oauth2/v2.0/token'
+            if self._gcc:
+                url = 'https://login.microsoftonline.us/{}/oauth2/v2.0/token'.format(self._tenantID)
             else:
                 url = 'https://login.microsoftonline.com/{}/oauth2/v2.0/token'.format(self._tenantID)
 
@@ -353,9 +381,10 @@ class OauthDeviceCode_Microsoft(_BaseOauthDeviceCode):
 
 
 class User:
-    def __init__(self, ID, authManagerParent, authType, debug=False):
+    def __init__(self, ID, authManagerParent, authType, debug=False, gcc=False):
         self._debug = debug
         self._ID = ID
+        self.gcc = gcc
 
         data = authManagerParent.Get(self)
         if authType == 'Google':
@@ -374,6 +403,7 @@ class User:
                 initRefreshToken=data.get('refreshToken', None),
                 initAccessTokenExpiresAt=data.get('expiresAt', None),
                 debug=self._debug,
+                gcc=self.gcc,
             )
         self._emailAddress = data.get('emailAddress', None)
         self._authManagerParent = authManagerParent
@@ -399,6 +429,7 @@ class User:
             'expiresAt': self._oa.GetAccessTokenExpriesAt(),
             'emailAddress': self._emailAddress,
             'type': self._oa.type,
+            'gcc': False if 'Microsoft' not in self._oa.type else self.gcc,
         }
 
     @property
@@ -421,7 +452,7 @@ class User:
         if self._emailAddress is None:
             resp = requests.get(
                 # 'https://graph.microsoft.com/v1.0/me', #invalid audience
-                'https://outlook.office.com/api/v2.0/me',
+                'https://outlook.office.us/api/v2.0/me' if self.gcc else 'https://outlook.office.com/api/v2.0/me',
                 headers={
                     'Authorization': 'Bearer {}'.format(self._oa.GetAccessToken()),
                     'Content-Type': 'application/json',
@@ -448,14 +479,23 @@ class AuthManager:
             self,
             microsoftClientID=None,
             microsoftTenantID=None,
+            microsoftGCCHigh=False,
             googleJSONpath=None,
             debug=False,
             fileClass=File,
+
+            **kwargs
     ):
         self._microsoftClientID = microsoftClientID
         self._microsoftTenantID = microsoftTenantID
+        self._microsoftGCCHigh = microsoftGCCHigh
         self._googleJSONpath = googleJSONpath
         self._debug = debug
+
+        self.googleKwargs = {}
+        for key, value in kwargs.items():
+            if key.startswith('google'):
+                self.googleKwargs[key] = value
 
         self._pv = PV(
             'OAuth.json',
@@ -502,7 +542,7 @@ class AuthManager:
     def Get(self, userObj):
         return self._pv.Get(userObj.ID, {})
 
-    def GetUserByID(self, ID):
+    def GetUserByID(self, ID: object) -> object:
         assert isinstance(ID, str), '"ID" must be a string not {}'.format(type(ID))
 
         d = self._pv.Get()
@@ -512,6 +552,7 @@ class AuthManager:
                 authManagerParent=self,
                 authType=d[ID]['type'],
                 debug=self._debug,
+                gcc=self._microsoftGCCHigh,
             )
         else:
             return None  # no user exist, you can use CreateNewUser if you like
@@ -534,6 +575,8 @@ class AuthManager:
                 initAccessToken=initAccessToken,
                 initRefreshToken=initRefreshToken,
                 initAccessTokenExpiresAt=time.time() if initAccessToken else None,  # assume its expired
+
+                **self.googleKwargs,
             )
         elif authType == 'Microsoft':
             tempOA = OauthDeviceCode_Microsoft(
@@ -543,11 +586,12 @@ class AuthManager:
                 initAccessToken=initAccessToken,
                 initRefreshToken=initRefreshToken,
                 initAccessTokenExpiresAt=time.time() if initAccessToken else None,  # assume its expired
+                gcc=self._microsoftGCCHigh,
             )
         else:
             raise TypeError('Unrecognized authType "{}"'.format(authType))
 
-        if callback and initAccessToken and tempOA.GetAccessToken():
+        if initAccessToken and tempOA.GetAccessToken():
             self._pv.Set(ID, {
                 'accessToken': tempOA.GetAccessToken(),
                 'refreshToken': tempOA.GetRefreshToken(),
@@ -558,9 +602,12 @@ class AuthManager:
             user = self.GetUserByID(ID)
             if callback and user:
                 callback(user)
-            return {
+            ret = {
                 'message': 'The user was created using the existing tokens'
             }
+            if initAccessToken or initRefreshToken:
+                ret['user'] = user
+            return ret
 
         userCode = tempOA.GetUserCode()
 
@@ -592,6 +639,24 @@ class AuthManager:
             'user_code': userCode,
             'message': tempOA.message,
         }
+
+    def CreateUserFromPersonalityFile(self, personalityFile, ID=None):
+        d = json.load(open(personalityFile, mode='rb'))
+        self.print('d=', d)
+
+        if 'ms' in d['calendar']['type']:
+            self._microsoftClientID = d['calendar']['o365_clientinfo']['client_id']
+            self._microsoftTenantID = d['calendar']['o365_clientinfo']['tenant_id']
+            d = self.CreateNewUser(
+                ID=ID or d['calendar']['o365_clientinfo']['credential_name'],
+                authType='Microsoft',
+                initAccessToken=d['calendar']['o365_clientinfo']['access_token'],
+                initRefreshToken=d['calendar']['o365_clientinfo']['refresh_token'],
+            )
+        else:
+            raise NotImplementedError('TODO')
+
+        return d['user']
 
 
 if __name__ == '__main__':
